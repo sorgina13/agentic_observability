@@ -13,10 +13,9 @@ az login
 #### Environment setup
 
 ```bash
-export RG="rg-loreaa-test13"
+export RG="rg-governance_ai"
 export LOCATION="eastus2" # one that supports hosted agents, e.g., northcentralus
-#export AGENTS_HOME="C:\Users\loreaa\VS_CODE\agents-observability-tt202\from-zero-to-hero"
-export AGENTS_HOME="/mnt/c/Users/loreaa/VS_CODE/agents-observability-tt202/from-zero-to-hero"
+export AGENTS_HOME="/VS_CODE/agents-observability-tt202/from-zero-to-hero"
 ```
 
 Move to `AGENTS_HOME`:
@@ -53,7 +52,7 @@ From portal:
 Export variable:
 
 ```bash
-export BING_CONNECTION_NAME="bing-grounding" 
+export BING_CONNECTION_NAME="GroundingB" 
 export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 export BING_PROJECT_CONNECTION_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.CognitiveServices/accounts/$FOUNDRY_RESOURCE_NAME/projects/$FOUNDRY_PROJECT_NAME/connections/$BING_CONNECTION_NAME"
 ```
@@ -79,6 +78,9 @@ pip list
 deactivate
 
 pip install azure-ai-agentserver-agentframework --no-compile --no-cache-dir --default-timeout=1000 --retries 5 
+
+pip install --no-compile --pre agent-dev-cli 
+
 ```
 
 ### Create agents
@@ -136,7 +138,7 @@ Test the group chat agent workflow
 python orchestration/demo/group_chat_agent_manager.py
 ```
 
-## Build as Agent and trace the workflow locally
+## Build as Agent and trace the workflow locally with AI Toolkit Agent Inspector
 
 As per today (Feb 4, 2026), we have to use the previous venv (260107) to build the orchestration as an agent.
 
@@ -158,43 +160,80 @@ First, we will adapt the workflow to become an agent. For that, we will use the 
 
 ### Instrument the agent
 
+The agents under `orchestration/tracing/` are already instrumented with OpenTelemetry via the Agent Framework's built-in `configure_otel_providers()`, which sends traces to the AI Toolkit Agent Inspector on port `4317` (gRPC):
 
-We will use the `AI Toolkit` extension to generate tracing configuration. Open the agent under `orchestration/tracing/group_chat_agent_manager_as_agent.py` and enable tracing using the helper from the extension (you can also apply it to the sequential_agents_as_agent.py if you want): 
+```python
+from agent_framework.observability import configure_otel_providers
 
-![AI Toolkit Traces Enable](images/aitoolkitraces-enable.png)
-
-
-The extension will use Github Copilot to generate the tracing configuration code:
-
-![AI Toolkit Traces Configuration](images/aitoolkitraces-copilot.png)
-
-### Run and test locally
-
-We will now use the `Microsoft Foundry` extension to test the agent and explore traces. First, open the Microsoft Foundry extension and start the Local Agent Playground.
-
-![Microsoft Foundry Local Agent Playground](images/localplayground.png)
-
-Then, run the traced agent locally:
-
-```bash
-python -Xfrozen_modules=off orchestration/tracing/solution/group_chat_agent_manager_as_agent.py
+configure_otel_providers(
+    vs_code_extension_port=4319,  # AI Toolkit gRPC port
+    enable_sensitive_data=True    # Capture prompts and completions
+)
 ```
 
-> **Note:** The `-Xfrozen_modules=off` flag prevents the debugger from missing breakpoints. Without it, you may see: _"It seems that frozen modules are being used, which may make the debugger miss breakpoints."_
+This is configured in both:
+- `orchestration/tracing/group_chat_agent_manager_as_agent.py`
+- `orchestration/tracing/sequential_agents_as_agent.py`
 
-Test it using the Local Agent Playground from the Microsoft Foundry extension and see the agent run and traces:
+### Run and test locally with Agent Inspector
 
-![Microsoft Foundry Local Traces](images/localtraces.png)
+We will use the **AI Toolkit Agent Inspector** integrated in VS Code to run, test and visualize traces interactively.
 
-Alternatively, you can test it using curl:
+#### Prerequisites
+
+Make sure `debugpy` and `agent-dev-cli` are installed in your active venv:
 
 ```bash
-curl -X POST http://localhost:8088/responses \
+pip install --no-compile debugpy
+pip install --no-compile --pre agent-dev-cli
+```
+
+#### Start the agent server from bash
+
+Make sure all environment variables are exported in your terminal, then start the server with `venv260107` active:
+
+```bash
+# For Group Chat workflow:
+python -Xfrozen_modules=off -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/group_chat_agent_manager_as_agent.py --verbose --port 8087
+
+# OR for Sequential workflow:
+python -Xfrozen_modules=off -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/sequential_agents_as_agent.py --verbose --port 8087
+```
+
+> **Note:** The `-Xfrozen_modules=off` flag is required to prevent the debugger from missing breakpoints. Without it, you may see the warning: _"It seems that frozen modules are being used, which may make the debugger miss breakpoints."_
+
+Wait until you see `Application startup complete` in the terminal before proceeding.
+
+#### Open Agent Inspector in VS Code
+
+- Click the **AI Toolkit** icon in the left Activity Bar
+- Navigate to **Agent Inspector**
+- It will automatically connect to `http://localhost:8087`
+
+#### Send a test prompt
+
+Send a prompt from the Agent Inspector UI input box, or using curl:
+
+```bash
+curl -X POST http://localhost:8087/responses \
   -H "Content-Type: application/json" \
   -d '{
     "input": "Report about the latest AI trends."
 }'
 ```
+
+#### View traces in Agent Inspector
+
+The AI Toolkit Agent Inspector will display:
+- Full multi-agent message flows between Researcher, Writer, and Reviewer
+- LLM prompts and completions (with `enable_sensitive_data=True`)
+- Timing and span hierarchy for each agent step
+
+![Microsoft Foundry Local Traces](images/localtraces.png)
+
+#### Stop the server
+
+When done, press `Ctrl+C` in the bash terminal to stop the server.
 
 
 ## Deploy as hosted agent
@@ -204,27 +243,6 @@ curl -X POST http://localhost:8088/responses \
 To get traces in `Microsoft Foundry`, we need to connect our Foundry project to an Application Insights resource. The application insights resource has been already created in the infrastructure deployment step, so you just need to connect it to the Foundry project. To do that, go to the Foundry portal and navigate to `Operate/Admin/<choose project>/Connected Resources/Application Insights` and connect the Application Insights resource that was created in the infrastructure step:
 
 ![Application Insights Connected Resource](images/appinsightsconfig.png)
-
-Export the Application Insights connection string (needed by the hosted agent to send traces to Azure Monitor).
-
-**Option 1 – from the Azure Portal:**
-
-Go to **Azure Portal → Application Insights resource (`appi-aiserviceffqs`) → Overview**, copy the **Connection string** field, then export it:
-
-```bash
-export APPLICATIONINSIGHTS_CONNECTION_STRING="<paste connection string here>"
-```
-
-**Option 2 – via Azure CLI:**
-
-```bash
-export APPLICATIONINSIGHTS_CONNECTION_STRING=$(az resource show \
-  --resource-group $RG \
-  --resource-type microsoft.insights/components \
-  --name appi-aiserviceffqs \
-  --query "properties.ConnectionString" -o tsv)
-echo $APPLICATIONINSIGHTS_CONNECTION_STRING
-```
 
 ### Understand folder structure
 

@@ -1,0 +1,112 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Validate prerequisites",
+      "type": "aitk",
+      "command": "debug-check-prerequisites",
+      "args": {
+        "portOccupancy": [
+          5679,
+          8087
+        ]
+      }
+    },
+    {
+      "label": "Run Group Chat Workflow HTTP Server",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/group_chat_agent_manager_as_agent.py --verbose --port 8087",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/agents-observability-tt202/from-zero-to-hero"
+      },
+      "dependsOn": [
+        "Validate prerequisites"
+      ],
+      "problemMatcher": {
+        "pattern": [
+          {
+            "regexp": "^.*$",
+            "file": 0,
+            "location": 1,
+            "message": 2
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Application startup complete|running on|Started server process"
+        }
+      }
+    },
+    {
+      "label": "Run Sequential Workflow HTTP Server",
+      "type": "shell",
+      "command": "${command:python.interpreterPath} -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/sequential_agents_as_agent.py --verbose --port 8087",
+      "isBackground": true,
+      "options": {
+        "cwd": "${workspaceFolder}/agents-observability-tt202/from-zero-to-hero"
+      },
+      "dependsOn": [
+        "Validate prerequisites"
+      ],
+      "problemMatcher": {
+        "pattern": [
+          {
+            "regexp": "^.*$",
+            "file": 0,
+            "location": 1,
+            "message": 2
+          }
+        ],
+        "background": {
+          "activeOnStart": true,
+          "beginsPattern": ".*",
+          "endsPattern": "Application startup complete|running on|Started server process"
+        }
+      }
+    },
+    {
+      "label": "Open Agent Inspector (Group Chat)",
+      "type": "shell",
+      "command": "echo '${input:openAgentInspector}'",
+      "presentation": {
+        "reveal": "never"
+      },
+      "dependsOn": [
+        "Run Group Chat Workflow HTTP Server"
+      ]
+    },
+    {
+      "label": "Open Agent Inspector (Sequential)",
+      "type": "shell",
+      "command": "echo '${input:openAgentInspector}'",
+      "presentation": {
+        "reveal": "never"
+      },
+      "dependsOn": [
+        "Run Sequential Workflow HTTP Server"
+      ]
+    },
+    {
+      "label": "Terminate All Tasks",
+      "command": "echo ${input:terminate}",
+      "type": "shell",
+      "problemMatcher": []
+    }
+  ],
+  "inputs": [
+    {
+      "id": "openAgentInspector",
+      "type": "command",
+      "command": "ai-mlstudio.openTestTool",
+      "args": { "triggeredFrom": "tasks", "port": 8087 }
+    },
+    {
+      "id": "terminate",
+      "type": "command",
+      "command": "workbench.action.tasks.terminate",
+      "args": "terminateAll"
+    }
+  ]
+}
