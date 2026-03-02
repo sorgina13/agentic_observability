@@ -1,0 +1,41 @@
+export RG="rg-test-gov"
+export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+export FOUNDRY_RESOURCE_NAME=$(az deployment group show --resource-group $RG --name basic-setup --query properties.outputs.accountName.value -o tsv)
+export FOUNDRY_PROJECT_NAME=$(az deployment group show --resource-group $RG --name basic-setup --query properties.outputs.projectName.value -o tsv)
+export BING_CONNECTION_NAME="your-bing-connection-name"  # ← Replace with actual name from Foundry portal
+export BING_CONNECTION_NAME="GroundingB"
+export BING_PROJECT_CONNECTION_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.CognitiveServices/accounts/$FOUNDRY_RESOURCE_NAME/projects/$FOUNDRY_PROJECT_NAME/connections/$BING_CONNECTION_NAME"
+
+#MCAPS-Hybrid-REQ-141219-2026-loreaa 
+#az account set --subscription "MCAPS-Hybrid-REQ-141219-2026-loreaa"
+
+activity  API
+https://aiservicep4ls.services.ai.azure.com/api/projects/aigovernance/applications/ResearcherAgent/protocols/activityprotocol?api-version=2025-11-15-preview
+
+responses APIhttps://aiservicep4ls.services.ai.azure.com/api/projects/aigovernance/applications/ResearcherAgent/protocols/openai/responses?api-version=2025-11-15-preview
+
+source venv260130/bin/activate
+pip install --no-compile -r requirements-260130.txt
+pip install --no-compile --no-cache-dir --default-timeout=1000 --retries 5 -r 
+pip list
+deactivate
+python3 -m venv venv260107
+source venv260107/bin/activate
+pip install --no-compile --no-cache-dir --default-timeout=1000 --retries 5 -r 
+pip list
+deactivate
+
+pip install azure-ai-agentserver-agentframework --no-compile --no-cache-dir --default-timeout=1000 --retries 5 
+
+pip install --no-compile --pre agent-dev-cli 
+
+export RG="rg-governance_ai"
+export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
+export FOUNDRY_RESOURCE_NAME="aiserviceffqs"
+export FOUNDRY_PROJECT_NAME="aigovernance"
+export AZURE_AI_PROJECT_ENDPOINT="https://$FOUNDRY_RESOURCE_NAME.services.ai.azure.com/api/projects/$FOUNDRY_PROJECT_NAME"
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1"
+export BING_CONNECTION_NAME="GroundingBy2603u"
+export APPLICATIONINSIGHTS_CONNECTION_STRING="InstrumentationKey=db34075a-7c1e-4194-ab1e-8984f27cbe70;IngestionEndpoint=https://eastus2-3.in.applicationinsights.azure.com/;LiveEndpoint=https://eastus2.livediagnostics.monitor.azure.com/;ApplicationId=6dd3a764-0dab-4618-b6a7-6c8b594a8327"
+export BING_PROJECT_CONNECTION_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.CognitiveServices/accounts/$FOUNDRY_RESOURCE_NAME/projects/$FOUNDRY_PROJECT_NAME/connections/$BING_CONNECTION_NAME"
+
