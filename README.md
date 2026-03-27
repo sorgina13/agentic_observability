@@ -13,9 +13,9 @@ az login
 #### Environment setup
 
 ```bash
-export RG="rg-minihack-test"
-export LOCATION="eastus2" # one that supports hosted agents, e.g., northcentralus
-export AGENTS_HOME="/mnt/c/Users/loreaa/VS_CODE/foundry_governance_from_zero_to_hero"
+export RG="rg-hack-test"
+export LOCATION="west-europe" # one that supports hosted agents, e.g., northcentralus
+export AGENTS_HOME="/VS_CODE/foundry_governance_from_zero_to_hero"
 ```
 
 Move to `AGENTS_HOME`:
@@ -40,7 +40,7 @@ Update env variables with outputs from deployment
 export FOUNDRY_RESOURCE_NAME=$(az deployment group show --resource-group $RG --name basic-setup --query properties.outputs.accountName.value -o tsv)
 export FOUNDRY_PROJECT_NAME=$(az deployment group show --resource-group $RG --name basic-setup --query properties.outputs.projectName.value -o tsv) 
 export AZURE_AI_PROJECT_ENDPOINT="https://$FOUNDRY_RESOURCE_NAME.services.ai.azure.com/api/projects/$FOUNDRY_PROJECT_NAME"
-export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1"  # or your deployment name
+export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4o"  # or your deployment name
 export 
 ```
 
@@ -55,7 +55,7 @@ From portal:
 Export variable:
 
 ```bash
-export BING_CONNECTION_NAME="GroundingBy2603u" 
+export BING_CONNECTION_NAME="your_bing_connection_name" 
 export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 export BING_PROJECT_CONNECTION_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.CognitiveServices/accounts/$FOUNDRY_RESOURCE_NAME/projects/$FOUNDRY_PROJECT_NAME/connections/$BING_CONNECTION_NAME"
 ```
@@ -132,8 +132,6 @@ If you get `Application '<agent-name>' not found`, one of these is still true:
 ## Create workflow
 
 Test the sequential agents workflow
-
-
 
 ```bash
 python orchestration/demo/sequential_agents.py
@@ -224,6 +222,14 @@ The AI Toolkit Agent Inspector will display:
 
 When done, press `Ctrl+C` in the bash terminal to stop the server.
 
+#### SOLUTIONS RUN
+
+```bash
+python -Xfrozen_modules=off -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/solution/sequential_agents_as_agent.py --verbose --port 8088
+
+
+python -Xfrozen_modules=off -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/solution/group_chat_agent_manager_as_agent.py --verbose --port 8088
+```
 
 ## Deploy as hosted agent
 
