@@ -1,7 +1,7 @@
 # filepath: Direct OpenAI compatible approach
 import os
 import sys
-from openai import OpenAI
+from openai import NotFoundError, OpenAI
 from azure.identity import DefaultAzureCredential, get_bearer_token_provider
 
 # Get configuration from environment variables
@@ -29,7 +29,14 @@ if len(sys.argv) > 1:
 else:
     input_prompt = "Write a detailed article on the impact of AI in healthcare."
 
-response = openai.responses.create(
-    input=input_prompt,
-)
+try:
+    response = openai.responses.create(
+        input=input_prompt,
+    )
+except NotFoundError as exc:
+    raise RuntimeError(
+        f"Agent Application '{app_name}' was not found at {base_url}. "
+        "Make sure the agent was created successfully, then publish it in the Foundry portal before invoking the application endpoint."
+    ) from exc
+
 print(f"Response output: {response.output_text}")

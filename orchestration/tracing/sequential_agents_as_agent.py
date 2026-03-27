@@ -8,18 +8,14 @@ from agent_framework import (
     ChatAgent,
     ChatMessage,
     Executor,
-    WorkflowBuilder,
     WorkflowContext,
     handler,
     SequentialBuilder,
 )
 from agent_framework.azure import AzureAIClient
-from agent_framework.observability import configure_otel_providers, enable_instrumentation
 from azure.ai.projects.aio import AIProjectClient
 from azure.identity.aio import DefaultAzureCredential
 from azure.ai.agentserver.agentframework import from_agent_framework
-
-enable_instrumentation()
 
 
 """
@@ -161,12 +157,6 @@ async def main() -> None:
     """
     Build and run the sequential workflow using agents from Microsoft Foundry.
     """
-    # Set up OpenTelemetry tracing
-    configure_otel_providers(
-        vs_code_extension_port=4319,  # AI Toolkit gRPC port
-        enable_sensitive_data=True  # Enable capturing prompts and completions
-    )
-
     # Verify environment variables
     if not os.environ.get("AZURE_AI_PROJECT_ENDPOINT"):
         raise ValueError(

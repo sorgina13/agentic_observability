@@ -13,9 +13,9 @@ az login
 #### Environment setup
 
 ```bash
-export RG="rg-governance_ai"
+export RG="rg-minihack-test"
 export LOCATION="eastus2" # one that supports hosted agents, e.g., northcentralus
-export AGENTS_HOME="/VS_CODE/agents-observability-tt202/from-zero-to-hero"
+export AGENTS_HOME="/mnt/c/Users/loreaa/VS_CODE/foundry_governance_from_zero_to_hero"
 ```
 
 Move to `AGENTS_HOME`:
@@ -41,7 +41,10 @@ export FOUNDRY_RESOURCE_NAME=$(az deployment group show --resource-group $RG --n
 export FOUNDRY_PROJECT_NAME=$(az deployment group show --resource-group $RG --name basic-setup --query properties.outputs.projectName.value -o tsv) 
 export AZURE_AI_PROJECT_ENDPOINT="https://$FOUNDRY_RESOURCE_NAME.services.ai.azure.com/api/projects/$FOUNDRY_PROJECT_NAME"
 export AZURE_AI_MODEL_DEPLOYMENT_NAME="gpt-4.1"  # or your deployment name
+export 
 ```
+
+Use the Application Insights connection string from the connected Application Insights resource. Keep the real value out of the repository and set it locally in your terminal or a non-committed `.env` file.
 
 From portal:
 
@@ -52,7 +55,7 @@ From portal:
 Export variable:
 
 ```bash
-export BING_CONNECTION_NAME="GroundingB" 
+export BING_CONNECTION_NAME="GroundingBy2603u" 
 export SUBSCRIPTION_ID=$(az account show --query id -o tsv)
 export BING_PROJECT_CONNECTION_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroups/$RG/providers/Microsoft.CognitiveServices/accounts/$FOUNDRY_RESOURCE_NAME/projects/$FOUNDRY_PROJECT_NAME/connections/$BING_CONNECTION_NAME"
 ```
@@ -60,35 +63,21 @@ export BING_PROJECT_CONNECTION_ID="/subscriptions/$SUBSCRIPTION_ID/resourceGroup
 
 ### Create venv and install the Agent Framework packages
 
-As of Feb 4, 2026, I will create two venvs:
-- venv260130 for latest MAF packages (260130)
-- venv260107 for previous MAF packages (260107) and compatible with azure-ai-agentserver-agentframework 1.0.0b10
+Use a single environment for the full repo workflow. The newest Microsoft Agent Framework packages (`260130`) conflict with the current `agent-dev-cli` and `azure-ai-agentserver-agentframework` dependencies used by the tracing and hosted-agent flows, so the root `requirements.txt` pins the newest compatible set.
 
 ```bash
-python3 -m venv venv260130
-source venv260130/bin/activate
-pip install --no-compile -r requirements-260130.txt
-pip install --no-compile --no-cache-dir --default-timeout=1000 --retries 5 -r 
+python3 -m venv .venv
+source .venv/bin/activate
+pip install --no-compile --no-cache-dir --default-timeout=1000 --retries 5 -r requirements.txt
 pip list
-deactivate
-python3 -m venv venv260107
-source venv260107/bin/activate
-pip install --no-compile --no-cache-dir --default-timeout=1000 --retries 5 -r 
-pip list
-deactivate
-
-pip install azure-ai-agentserver-agentframework --no-compile --no-cache-dir --default-timeout=1000 --retries 5 
-
-pip install --no-compile --pre agent-dev-cli 
-
 ```
 
 ### Create agents
 
-Activate latest venv:
+Activate the environment:
 
 ```bash
-source venv260130/bin/activate
+source .venv/bin/activate
 ```
 
 **Using Foundry SDK**
@@ -99,6 +88,10 @@ python agents-standalone/foundry/create_writer_agent.py
 python agents-standalone/foundry/create_reviewer_agent.py
 ```
 
+These scripts create the agents `ResearcherAgent`, `WriterAgent`, and `ReviewerAgent`.
+
+If you want to call the research agent through `agents-client/agent_client.py`, you must publish `ResearcherAgent` after creating it.
+
 **Using Microsoft Agent Framework**
 
 ```bash
@@ -107,20 +100,34 @@ python agents-standalone/maf/create_writer_agent.py
 python agents-standalone/maf/create_reviewer_agent.py
 ```
 
+These scripts create the agents `ResearcherAgentV2`, `WriterAgentV2`, and `ReviewerAgentV2`.
+
+If you want to call the research agent through `agents-client/agent_client.py`, you must publish `ResearcherAgentV2` after creating it.
+
 ### Publish the agent
 
-Use publish in Foundry portal. 
+Use publish in Foundry portal after the create script completes successfully.
+
+This step is required before `agents-client/agent_client.py` will work. The client calls the Agent Application endpoint under `/applications/<agent-name>/protocols/openai`, and that endpoint does not exist until the agent is published as an Agent Application.
+
+For the research agent, this means publishing `ResearcherAgent` if you created it with the Foundry SDK scripts, or publishing `ResearcherAgentV2` if you created it with the Microsoft Agent Framework scripts.
 
 You get a set of endpoints for the Researcher agent (responses api and activity protocol):
 
 ### Test the agent
 
-Use the responses endpoint to test the agent:
+Use the responses endpoint to test the published agent. Set `AGENT_NAME` to match the creation script you used:
 
 ```bash
-export AGENT_NAME=ResearcherAgentV2
+export AGENT_NAME=ResearcherAgent   # For agents-standalone/foundry/create_research_agent.py
+# export AGENT_NAME=ResearcherAgentV2  # For agents-standalone/maf/create_research_agent.py
 python agents-client/agent_client.py "What are the latest AI trends?"
 ```
+
+If you get `Application '<agent-name>' not found`, one of these is still true:
+- The create script never completed successfully.
+- The agent was created but not published yet.
+- `AGENT_NAME` does not match the published application name.
 
 ## Create workflow
 
@@ -140,13 +147,10 @@ python orchestration/demo/group_chat_agent_manager.py
 
 ## Build as Agent and trace the workflow locally with AI Toolkit Agent Inspector
 
-As per today (Feb 4, 2026), we have to use the previous venv (260107) to build the orchestration as an agent.
-
-Activate the previous venv:
+Use the same environment created above:
 
 ```bash
-deactivate
-source venv260107/bin/activate
+source .venv/bin/activate
 ```
 
 ### Workflow as agent
@@ -160,20 +164,9 @@ First, we will adapt the workflow to become an agent. For that, we will use the 
 
 ### Instrument the agent
 
-The agents under `orchestration/tracing/` are already instrumented with OpenTelemetry via the Agent Framework's built-in `configure_otel_providers()`, which sends traces to the AI Toolkit Agent Inspector on port `4317` (gRPC):
+To trigger the workflow directly from the AI Toolkit Agent Inspector UI, run the sample through `agentdev`. In this mode, `agentdev` injects the conversation backend and tracing hooks that Agent Inspector expects.
 
-```python
-from agent_framework.observability import configure_otel_providers
-
-configure_otel_providers(
-    vs_code_extension_port=4319,  # AI Toolkit gRPC port
-    enable_sensitive_data=True    # Capture prompts and completions
-)
-```
-
-This is configured in both:
-- `orchestration/tracing/group_chat_agent_manager_as_agent.py`
-- `orchestration/tracing/sequential_agents_as_agent.py`
+Before starting `agentdev`, clear any tracing environment variables that would make the underlying agent server register its own exporters.
 
 ### Run and test locally with Agent Inspector
 
@@ -181,46 +174,42 @@ We will use the **AI Toolkit Agent Inspector** integrated in VS Code to run, tes
 
 #### Prerequisites
 
-Make sure `debugpy` and `agent-dev-cli` are installed in your active venv:
+`debugpy` and `agent-dev-cli` are already installed from the root `requirements.txt` in the active environment.
 
 ```bash
-pip install --no-compile debugpy
-pip install --no-compile --pre agent-dev-cli
+pip show debugpy agent-dev-cli
 ```
 
 #### Start the agent server from bash
 
-Make sure all environment variables are exported in your terminal, then start the server with `venv260107` active:
+Make sure all environment variables are exported in your terminal, then start the server with `.venv` active:
 
 ```bash
-# For Group Chat workflow:
-python -Xfrozen_modules=off -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/group_chat_agent_manager_as_agent.py --verbose --port 8087
-
-# OR for Sequential workflow:
-python -Xfrozen_modules=off -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/sequential_agents_as_agent.py --verbose --port 8087
+export PYDEVD_DISABLE_FILE_VALIDATION=1
+python -Xfrozen_modules=off -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/sequential_agents_as_agent.py --verbose --port 8088
 ```
 
 > **Note:** The `-Xfrozen_modules=off` flag is required to prevent the debugger from missing breakpoints. Without it, you may see the warning: _"It seems that frozen modules are being used, which may make the debugger miss breakpoints."_
 
 Wait until you see `Application startup complete` in the terminal before proceeding.
 
+
+### Group Chat Manager as agent
+
+```bash
+export PYDEVD_DISABLE_FILE_VALIDATION=1
+python -Xfrozen_modules=off -m debugpy --listen 127.0.0.1:5679 -m agentdev run orchestration/tracing/group_chat_agent_manager_as_agent.py --verbose --port 8088
+```
+
 #### Open Agent Inspector in VS Code
 
 - Click the **AI Toolkit** icon in the left Activity Bar
 - Navigate to **Agent Inspector**
-- It will automatically connect to `http://localhost:8087`
+- It will automatically connect to `http://localhost:8088`
 
 #### Send a test prompt
 
-Send a prompt from the Agent Inspector UI input box, or using curl:
-
-```bash
-curl -X POST http://localhost:8087/responses \
-  -H "Content-Type: application/json" \
-  -d '{
-    "input": "Report about the latest AI trends."
-}'
-```
+Send a prompt from the Agent Inspector UI input box.
 
 #### View traces in Agent Inspector
 

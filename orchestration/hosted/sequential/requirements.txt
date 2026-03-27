@@ -16,4 +16,7 @@ agent-framework-mem0==1.0.0b260107
 agent-framework-ollama==1.0.0b260107
 agent-framework-purview==1.0.0b260107
 agent-framework-redis==1.0.0b260107
+azure-ai-projects==2.0.0b2
 azure-monitor-opentelemetry
+opentelemetry-semantic-conventions-ai==0.4.13
+starlette==0.49.3

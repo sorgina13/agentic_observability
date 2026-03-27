@@ -83,12 +83,6 @@ async def create_chat_client_for_coordinator(
 
 
 async def main() -> None:
-    # Set up OpenTelemetry tracing
-    configure_otel_providers(
-        vs_code_extension_port=4319,  # AI Toolkit gRPC port
-        enable_sensitive_data=True  # Enable capturing prompts and completions
-    )
-
     # Verify environment variables
     if not os.environ.get("AZURE_AI_PROJECT_ENDPOINT"):
         raise ValueError(

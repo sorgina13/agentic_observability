@@ -8,7 +8,7 @@ from agent_framework import (
     ChatAgent,
     ChatMessage,
     Executor,
-    WorkflowBuilder,
+    SequentialBuilder,
     WorkflowContext,
     WorkflowOutputEvent,
     WorkflowStatusEvent,
@@ -206,19 +206,10 @@ async def main() -> None:
                 chat_client=reviewer_client,
             )
 
-            # Build the workflow using the executor pattern
-            # This mirrors the sequential structure: Researcher -> Writer -> Reviewer
+            # Build a simple sequential participant workflow (Researcher -> Writer -> Reviewer)
             workflow = (
-                WorkflowBuilder()
-                # Register executors with lazy instantiation
-                .register_executor(lambda: ResearcherAgentV2Executor(researcher), name="ResearcherAgentV2")
-                .register_executor(lambda: WriterAgentV2Executor(writer), name="WriterAgentV2")
-                .register_executor(lambda: ReviewerAgentV2Executor(reviewer), name="ReviewerAgentV2")
-                # Define the sequential flow: Researcher -> Writer -> Reviewer
-                .add_edge("ResearcherAgentV2", "WriterAgentV2")
-                .add_edge("WriterAgentV2", "ReviewerAgentV2")
-                # Set the entry point
-                .set_start_executor("ResearcherAgentV2")
+                SequentialBuilder()
+                .register_participants([lambda: researcher, lambda: writer, lambda: reviewer])
                 .build()
             )
 

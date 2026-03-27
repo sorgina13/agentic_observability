@@ -33,6 +33,12 @@ async def get_bing_connection_id() -> str:
     """
     print("\nSearching for Bing connection in Microsoft project...")
 
+    # If user provided a direct connection id, prefer it (avoids auto-discovery issues)
+    env_conn = os.environ.get("BING_PROJECT_CONNECTION_ID")
+    if env_conn:
+        print(f"Using BING_PROJECT_CONNECTION_ID from environment: {env_conn}")
+        return env_conn
+
     async with (
         DefaultAzureCredential() as credential,
         AIProjectClient(
@@ -40,15 +46,27 @@ async def get_bing_connection_id() -> str:
             credential=credential
         ) as project_client,
     ):
-        async for connection in project_client.connections. list():
-            if connection.type == ConnectionType.AZURE_AI_SEARCH or "bing" in connection.name. lower():
-                print(
-                    f"✓ Found connection: {connection.name} (ID: {connection.id})")
+        async for connection in project_client.connections.list():
+            # Print discovered connections for debugging
+            try:
+                cname = connection.name or "<no-name>"
+                ctype = getattr(connection, "type", "<no-type>")
+                print(f"- Discovered connection: name={cname!r} id={connection.id!r} type={ctype}")
+            except Exception:
+                print(f"- Discovered connection: id={getattr(connection, 'id', '<no-id>')} (could not read name/type)")
+
+            # Common types that may represent a Bing grounding connection
+            if (
+                connection.type == ConnectionType.AZURE_AI_SEARCH
+                or connection.type == ConnectionType.API_KEY
+                or "bing" in (connection.name or "").lower()
+            ):
+                print(f"✓ Found connection: {connection.name} (ID: {connection.id})")
                 return connection.id
 
         raise ValueError(
             "No Bing connection found in Microsoft project. "
-            "Please create a Bing resource and connect it to your Microsoft project."
+            "Please create a Bing resource and connect it to your Microsoft project, or set BING_PROJECT_CONNECTION_ID."
         )
 
 
